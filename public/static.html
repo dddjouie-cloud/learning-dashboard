@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>老贾的学习监控面板 🤖</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .card-hover { transition: all 0.3s ease; }
+    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div id="app" class="min-h-screen">
+    <!-- 顶部导航 -->
+    <nav class="gradient-bg text-white shadow-lg">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <div class="flex items-center space-x-3">
+            <span class="text-2xl">🤖</span>
+            <div>
+              <h1 class="text-xl font-bold">老贾的学习监控面板</h1>
+              <p class="text-sm text-purple-200">Lao Jia's Learning Dashboard</p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-4">
+            <span class="text-sm text-purple-200">
+              最后更新：{{ lastUpdate }}
+            </span>
+            <button @click="refresh" class="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-sm transition">
+              🔄 刷新
+            </button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- 主内容 -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- 统计卡片 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-xl shadow-md p-6 card-hover">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">总学习次数</p>
+              <p class="text-3xl font-bold text-gray-900 mt-1">{{ stats.total }}</p>
+            </div>
+            <div class="text-4xl">📚</div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-md p-6 card-hover">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">今日学习</p>
+              <p class="text-3xl font-bold text-green-600 mt-1">{{ stats.today }}</p>
+            </div>
+            <div class="text-4xl">☀️</div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-md p-6 card-hover">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">本周学习</p>
+              <p class="text-3xl font-bold text-blue-600 mt-1">{{ stats.thisWeek }}</p>
+            </div>
+            <div class="text-4xl">📅</div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-md p-6 card-hover">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">总耗时</p>
+              <p class="text-3xl font-bold text-purple-600 mt-1">{{ stats.totalDuration }}<span class="text-lg">分钟</span></p>
+            </div>
+            <div class="text-4xl">⏱️</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 分类统计 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white rounded-xl shadow-md p-6">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">📊 按类型统计</h3>
+          <div class="space-y-3">
+            <div v-for="(count, type) in stats.byType" :key="type" class="flex items-center justify-between">
+              <span class="text-gray-700">{{ type }}</span>
+              <span class="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">{{ count }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-md p-6">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">✅ 按状态统计</h3>
+          <div class="space-y-3">
+            <div v-for="(count, status) in stats.byStatus" :key="status" class="flex items-center justify-between">
+              <span class="text-gray-700">{{ status }}</span>
+              <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">{{ count }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 最近记录 -->
+      <div class="bg-white rounded-xl shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">📝 最近学习记录</h3>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">日期</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">类型</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">内容</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">耗时</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr v-for="r in stats.recentRecords" :key="r.id" class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ r.date }}</td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">{{ r.type }}</span>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900 max-w-md truncate">{{ r.content }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ r.duration }}分钟</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">{{ r.status }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <footer class="bg-white border-t mt-8">
+      <div class="max-w-7xl mx-auto px-4 py-6">
+        <p class="text-center text-gray-500 text-sm">
+          老贾的学习监控面板 v1.0 | 数据源：飞书多维表格
+        </p>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        return {
+          lastUpdate: new Date().toLocaleString('zh-CN'),
+          stats: {
+            total: 3,
+            today: 2,
+            thisWeek: 3,
+            totalDuration: 65,
+            byType: {
+              "技术深度阅读": 1,
+              "GitHub 探索": 1,
+              "投资知识": 1
+            },
+            byStatus: {
+              "✅ 完成": 3
+            },
+            recentRecords: [
+              {
+                id: '1',
+                date: '2026-03-20',
+                type: '技术深度阅读',
+                content: 'Karpathy Autoresearch + Paperclip',
+                duration: 30,
+                status: '✅ 完成',
+                output: '2 篇知识库文档',
+                note: 'AI 自主科研系统 (43.9k⭐) + 零人工公司编排'
+              },
+              {
+                id: '2',
+                date: '2026-03-20',
+                type: 'GitHub 探索',
+                content: 'GitHub Trending 项目调研',
+                duration: 15,
+                status: '✅ 完成',
+                output: '项目测评文档',
+                note: '探索最新 AI/ML 项目'
+              },
+              {
+                id: '3',
+                date: '2026-03-19',
+                type: '投资知识',
+                content: 'A 股市场分析与 LPR 政策解读',
+                duration: 20,
+                status: '✅ 完成',
+                output: '投资笔记',
+                note: '每日财经新闻学习'
+              }
+            ]
+          }
+        };
+      },
+      methods: {
+        refresh() {
+          location.reload();
+        }
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
