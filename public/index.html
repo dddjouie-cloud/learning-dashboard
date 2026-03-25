@@ -3,38 +3,42 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>老贾的学习监控面板 🤖</title>
+  <title>小刘的监控面板 🤖</title>
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    body { font-family: 'Inter', system-ui, sans-serif; }
-    .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-    .card-hover { transition: all 0.3s ease; }
-    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
-    .animate-pulse-slow { animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    * { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .gradient-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .gradient-success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+    .gradient-info { background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); }
+    .gradient-warning { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .stat-card { transition: all 0.3s; }
+    .stat-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+    .loading-pulse { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 min-h-screen">
   <div id="app" class="min-h-screen">
     <!-- 顶部导航 -->
-    <nav class="gradient-bg text-white shadow-lg">
+    <nav class="gradient-primary text-white shadow-xl sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-16">
-          <div class="flex items-center space-x-3">
-            <span class="text-2xl">🤖</span>
+        <div class="flex items-center justify-between h-20">
+          <div class="flex items-center space-x-4">
+            <div class="text-4xl">🤖</div>
             <div>
-              <h1 class="text-xl font-bold">老贾的学习监控面板</h1>
-              <p class="text-sm text-purple-200">Lao Jia's Learning Dashboard</p>
+              <h1 class="text-2xl font-bold">小刘的监控面板</h1>
+              <p class="text-sm text-purple-200">Xiao Liu's Monitoring Dashboard</p>
             </div>
           </div>
-          <div class="flex items-center space-x-4">
-            <span class="text-sm text-purple-200" v-if="lastUpdate">
-              最后更新：{{ lastUpdate }}
-            </span>
-            <button @click="fetchData" class="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-sm transition">
-              🔄 刷新
+          <div class="flex items-center space-x-2">
+            <button @click="showEditor = !showEditor" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl text-sm font-medium transition">
+              ✏️ <span class="hidden sm:inline">编辑数据</span>
+            </button>
+            <button @click="refresh" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl text-sm font-medium transition">
+              🔄 <span class="hidden sm:inline">刷新</span>
             </button>
           </div>
         </div>
@@ -42,133 +46,111 @@
     </nav>
 
     <!-- 主内容 -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- 加载状态 -->
-      <div v-if="loading" class="text-center py-20">
-        <div class="text-6xl mb-4 animate-pulse-slow">🤖</div>
-        <p class="text-gray-500">正在加载学习数据...</p>
+    <main class="max-w-7xl mx-auto px-4 py-8">
+      <!-- 统计卡片 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-2xl shadow-lg p-6 stat-card">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">总学习次数</p>
+              <p class="text-4xl font-extrabold text-gray-900 mt-2">{{ stats.total }}</p>
+            </div>
+            <div class="w-16 h-16 gradient-primary rounded-2xl flex items-center justify-center text-3xl">📚</div>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-lg p-6 stat-card">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">今日学习</p>
+              <p class="text-4xl font-extrabold text-green-600 mt-2">{{ stats.today }}</p>
+            </div>
+            <div class="w-16 h-16 gradient-success rounded-2xl flex items-center justify-center text-3xl">☀️</div>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-lg p-6 stat-card">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">本周学习</p>
+              <p class="text-4xl font-extrabold text-blue-600 mt-2">{{ stats.thisWeek }}</p>
+            </div>
+            <div class="w-16 h-16 gradient-info rounded-2xl flex items-center justify-center text-3xl">📅</div>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-lg p-6 stat-card">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">总耗时</p>
+              <p class="text-4xl font-extrabold text-purple-600 mt-2">{{ stats.totalDuration }}<span class="text-lg">分钟</span></p>
+            </div>
+            <div class="w-16 h-16 gradient-warning rounded-2xl flex items-center justify-center text-3xl">⏱️</div>
+          </div>
+        </div>
       </div>
 
-      <!-- 错误状态 -->
-      <div v-else-if="error" class="text-center py-20">
-        <div class="text-6xl mb-4">❌</div>
-        <p class="text-red-500 mb-4">{{ error }}</p>
-        <button @click="fetchData" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700">
-          重试
-        </button>
-      </div>
-
-      <!-- 数据展示 -->
-      <div v-else>
-        <!-- 统计卡片 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <!-- 总学习次数 -->
-          <div class="bg-white rounded-xl shadow-md p-6 card-hover">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-gray-500 text-sm">总学习次数</p>
-                <p class="text-3xl font-bold text-gray-900 mt-1">{{ stats.total }}</p>
-              </div>
-              <div class="text-4xl">📚</div>
-            </div>
-          </div>
-
-          <!-- 今日学习 -->
-          <div class="bg-white rounded-xl shadow-md p-6 card-hover">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-gray-500 text-sm">今日学习</p>
-                <p class="text-3xl font-bold text-green-600 mt-1">{{ stats.today }}</p>
-              </div>
-              <div class="text-4xl">☀️</div>
-            </div>
-          </div>
-
-          <!-- 本周学习 -->
-          <div class="bg-white rounded-xl shadow-md p-6 card-hover">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-gray-500 text-sm">本周学习</p>
-                <p class="text-3xl font-bold text-blue-600 mt-1">{{ stats.thisWeek }}</p>
-              </div>
-              <div class="text-4xl">📅</div>
-            </div>
-          </div>
-
-          <!-- 总耗时 -->
-          <div class="bg-white rounded-xl shadow-md p-6 card-hover">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-gray-500 text-sm">总耗时</p>
-                <p class="text-3xl font-bold text-purple-600 mt-1">{{ stats.totalDuration }}<span class="text-lg">分钟</span></p>
-              </div>
-              <div class="text-4xl">⏱️</div>
+      <!-- 图表和分布 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white rounded-2xl shadow-lg p-6">
+          <h3 class="text-lg font-bold mb-4">📈 学习趋势</h3>
+          <div class="h-64"><canvas ref="trendChart"></canvas></div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-lg p-6">
+          <h3 class="text-lg font-bold mb-4">🎯 类型分布</h3>
+          <div class="space-y-3">
+            <div v-for="(count, type, i) in stats.byType" :key="type" class="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50">
+              <span class="text-gray-700 font-medium">{{ type }}</span>
+              <span class="bg-gray-900 text-white px-3 py-1 rounded-full text-sm font-bold">{{ count }}</span>
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- 分类统计 -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <!-- 按类型统计 -->
-          <div class="bg-white rounded-xl shadow-md p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">📊 按类型统计</h3>
-            <div class="space-y-3">
-              <div v-for="(count, type) in stats.byType" :key="type" class="flex items-center justify-between">
-                <span class="text-gray-700">{{ type }}</span>
-                <span class="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">{{ count }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 按状态统计 -->
-          <div class="bg-white rounded-xl shadow-md p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">✅ 按状态统计</h3>
-            <div class="space-y-3">
-              <div v-for="(count, status) in stats.byStatus" :key="status" class="flex items-center justify-between">
-                <span class="text-gray-700">{{ status }}</span>
-                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">{{ count }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 最近记录 -->
-        <div class="bg-white rounded-xl shadow-md p-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">📝 最近学习记录</h3>
-          <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">日期</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">类型</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">内容</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">耗时</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                <tr v-for="record in stats.recentRecords" :key="record.id" class="hover:bg-gray-50">
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ record.date }}</td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">{{ record.type }}</span>
-                  </td>
-                  <td class="px-6 py-4 text-sm text-gray-900 max-w-md truncate">{{ record.content }}</td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.duration }}分钟</td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm">{{ record.status }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+      <!-- 最近记录 -->
+      <div class="bg-white rounded-2xl shadow-lg p-6">
+        <h3 class="text-lg font-bold mb-4">📝 最近学习记录</h3>
+        <div class="overflow-x-auto">
+          <table class="min-w-full">
+            <thead>
+              <tr class="border-b">
+                <th class="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">日期</th>
+                <th class="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">类型</th>
+                <th class="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">内容</th>
+                <th class="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">耗时</th>
+                <th class="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">状态</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">
+              <tr v-for="r in stats.recentRecords" :key="r.id" class="hover:bg-gray-50">
+                <td class="py-3 px-4 text-sm">{{ r.date }}</td>
+                <td class="py-3 px-4"><span class="px-3 py-1 text-xs rounded-full bg-blue-100 text-blue-700">{{ r.type }}</span></td>
+                <td class="py-3 px-4 text-sm max-w-md truncate">{{ r.content }}</td>
+                <td class="py-3 px-4 text-sm">⏱️ {{ r.duration }}分钟</td>
+                <td class="py-3 px-4"><span class="px-3 py-1 text-xs rounded-full bg-green-100 text-green-700">{{ r.status }}</span></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </main>
 
+    <!-- 编辑弹窗 -->
+    <div v-if="showEditor" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" @click.self="showEditor = false">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-auto p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-xl font-bold">✏️ 编辑数据</h3>
+          <button @click="showEditor = false" class="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+        </div>
+        <textarea v-model="jsonEditor" class="w-full h-96 font-mono text-sm border rounded-lg p-4" placeholder="粘贴 JSON 数据..."></textarea>
+        <div class="flex justify-end space-x-3 mt-4">
+          <button @click="resetData" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">恢复默认</button>
+          <button @click="saveData" class="px-6 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90">💾 保存</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 页脚 -->
-    <footer class="bg-white border-t mt-8">
-      <div class="max-w-7xl mx-auto px-4 py-6">
-        <p class="text-center text-gray-500 text-sm">
-          老贾的学习监控面板 v1.0 | Powered by Vue 3 + Tailwind CSS
-        </p>
+    <footer class="bg-white/80 border-t mt-12 py-6">
+      <div class="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
+        小刘的监控面板 v2.0 | 数据存储在本地浏览器
       </div>
     </footer>
   </div>
@@ -179,53 +161,69 @@
     createApp({
       data() {
         return {
-          loading: true,
-          error: null,
-          lastUpdate: null,
-          stats: {
-            total: 0,
-            today: 0,
-            thisWeek: 0,
-            totalDuration: 0,
-            byType: {},
-            byStatus: {},
-            recentRecords: []
-          },
-          // 配置
-          apiToken: 'laojia2026', // 生产环境应该从环境变量读取
-          apiUrl: 'http://localhost:3456/api'
+          showEditor: false,
+          jsonEditor: '',
+          lastUpdate: '--',
+          stats: { total: 0, today: 0, thisWeek: 0, totalDuration: 0, byType: {}, byStatus: {}, recentRecords: [] }
         };
       },
-      mounted() {
-        this.fetchData();
-        // 每 5 分钟自动刷新
-        setInterval(this.fetchData, 5 * 60 * 1000);
-      },
+      mounted() { this.loadData(); },
       methods: {
-        async fetchData() {
-          this.loading = true;
-          this.error = null;
-          
-          try {
-            const response = await fetch(`${this.apiUrl}/data`, {
-              headers: {
-                'Authorization': `Bearer ${this.apiToken}`
-              }
-            });
-            
-            if (!response.ok) {
-              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            this.stats = data.stats;
-            this.lastUpdate = new Date(data.lastUpdate).toLocaleString('zh-CN');
-          } catch (err) {
-            console.error('获取数据失败:', err);
-            this.error = '加载数据失败：' + err.message;
-          } finally {
-            this.loading = false;
+        loadData() {
+          const stored = localStorage.getItem('dashboard_stats');
+          if (stored) {
+            this.stats = JSON.parse(stored);
+          } else {
+            this.stats = this.getDefaultData();
           }
+          this.jsonEditor = JSON.stringify(this.stats, null, 2);
+          this.lastUpdate = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
+          this.$nextTick(() => this.renderChart());
+        },
+        getDefaultData() {
+          return {
+            total: 15, today: 3, thisWeek: 8, totalDuration: 320,
+            byType: {"技术深度阅读":6,"GitHub 探索":4,"投资知识":3,"产品调研":2},
+            byStatus: {"✅ 完成":13,"🔄 进行中":2},
+            recentRecords: [
+              {id:'1',date:'2026-03-25',type:'技术深度阅读',content:'OpenClaw 能力分析报告',duration:45,status:'✅ 完成'},
+              {id:'2',date:'2026-03-25',type:'投资知识',content:'A 股市场分析与 LPR 政策解读',duration:30,status:'✅ 完成'},
+              {id:'3',date:'2026-03-24',type:'GitHub 探索',content:'AI Agent 框架调研',duration:60,status:'✅ 完成'},
+              {id:'4',date:'2026-03-24',type:'产品调研',content:'竞品分析：Dify vs Coze',duration:40,status:'✅ 完成'},
+              {id:'5',date:'2026-03-23',type:'技术深度阅读',content:'Karpathy Autoresearch 论文精读',duration:90,status:'✅ 完成'}
+            ]
+          };
+        },
+        saveData() {
+          try {
+            this.stats = JSON.parse(this.jsonEditor);
+            localStorage.setItem('dashboard_stats', JSON.stringify(this.stats));
+            this.showEditor = false;
+            this.lastUpdate = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
+            alert('✅ 数据已保存！');
+          } catch(e) {
+            alert('❌ JSON 格式错误：' + e.message);
+          }
+        },
+        resetData() {
+          if(confirm('确定恢复默认数据？')) {
+            this.stats = this.getDefaultData();
+            this.jsonEditor = JSON.stringify(this.stats, null, 2);
+            localStorage.setItem('dashboard_stats', JSON.stringify(this.stats));
+          }
+        },
+        refresh() { this.loadData(); },
+        renderChart() {
+          const ctx = this.$refs.trendChart;
+          if(!ctx) return;
+          if(this.chart) this.chart.destroy();
+          const labels = []; const data = [];
+          for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);labels.push(d.toLocaleDateString('zh-CN',{month:'short',day:'numeric'}));data.push(Math.floor(Math.random()*5));}
+          this.chart = new Chart(ctx, {
+            type:'line',
+            data:{labels:labels,datasets:[{label:'学习次数',data:data,borderColor:'#667eea',backgroundColor:'rgba(102,126,234,0.1)',borderWidth:3,fill:true,tension:0.4}]},
+            options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true},x:{grid:{display:false}}}}
+          });
         }
       }
     }).mount('#app');
